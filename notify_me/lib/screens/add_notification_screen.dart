@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:device_apps/device_apps.dart';
+import '../models/notification_model.dart';
+import '../database/db_helper.dart';
 
 class AddNotificationScreen extends StatefulWidget {
   const AddNotificationScreen({super.key});
@@ -22,6 +24,15 @@ class _AddNotificationScreenState extends State<AddNotificationScreen> {
   List<Application> _apps = [];
   Application? _selectedApp;
   bool _isLoadingApps = true;
+
+  // Controller do Texto
+  final TextEditingController _messageController = TextEditingController();
+
+  @override
+  void dispose() {
+    _messageController.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -154,11 +165,36 @@ class _AddNotificationScreenState extends State<AddNotificationScreen> {
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                             elevation: 0,
                           ),
-                          onPressed: () {
-                            // Imprime pra testar
-                            print("App: ${_selectedApp?.appName}");
-                            print("Msg: Mensagem digitada..."); 
-                            Navigator.pop(context);
+                          onPressed: () async {
+                            if (_selectedApp == null) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Selecione um aplicativo!')),
+                                );
+                                return;
+                            }
+                            
+                            if (_messageController.text.isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Digite uma mensagem!')),
+                                );
+                                return;
+                            }
+
+                            // Criar o Objeto NotificationModel
+                            final notification = NotificationModel(
+                              appName: _selectedApp!.appName,
+                              packageName: _selectedApp!.packageName,
+                              message: _messageController.text,
+                              hour: _selectedTime.hour,
+                              minute: _selectedTime.minute,
+                            );
+
+                            // Salvar no Banco
+                            await DBHelper().insertNotification(notification);
+
+                            if (mounted) {
+                              Navigator.pop(context, true); // Retorna true para atualizar a Home
+                            }
                           },
                           child: const Text('Agendar Notificação', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                         ),
@@ -233,6 +269,7 @@ class _AddNotificationScreenState extends State<AddNotificationScreen> {
 
   Widget _buildTextField() {
     return TextField(
+      controller: _messageController,
       style: const TextStyle(color: Colors.white),
       maxLines: 2,
       minLines: 1,
