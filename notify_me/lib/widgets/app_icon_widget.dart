@@ -15,7 +15,7 @@ class AppIconWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return FutureBuilder<Application?>(
       // Pergunta pro Android quem é esse app e pede o ícone
-      future: DeviceApps.getApp(packageName, includeAppIcon: true),
+      future: DeviceApps.getApp(packageName, true),
       builder: (context, snapshot) {
         // Se achou o app e ele tem ícone
         if (snapshot.hasData && snapshot.data is ApplicationWithIcon) {
