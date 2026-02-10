@@ -1,23 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:notify_me/screens/add_notification_screen.dart';
-// import 'package:font_awesome_flutter/font_awesome_flutter.dart'; // Opcional: para ícones de marcas reais
-
-// 1. O Modelo (A "receita" do que compõe uma notificação)
-class NotificationItem {
-  final String appName;
-  final String message;
-  final String time;
-  final IconData icon;
-  final Color iconColor;
-
-  NotificationItem({
-    required this.appName,
-    required this.message,
-    required this.time,
-    required this.icon,
-    required this.iconColor,
-  });
-}
+import '../models/notification_model.dart'; // Import do Modelo
+import '../database/db_helper.dart';       // Import do Banco
+import '../widgets/app_icon_widget.dart';  // <--- Import do Widget de Ícone que criamos
 
 class NotificationHomeScreen extends StatefulWidget {
   const NotificationHomeScreen({super.key});
@@ -27,45 +12,21 @@ class NotificationHomeScreen extends StatefulWidget {
 }
 
 class _NotificationHomeScreenState extends State<NotificationHomeScreen> {
-  // Suas cores (mantive as do código anterior, ajuste se precisar)
+  // Cores do Tema
   final Color spaceIndigo = const Color(0xFF000033);
-  final Color grapeSoda = const Color(0xFFea2f59); // O seu laranja/salmão entraria aqui
+  final Color grapeSoda = const Color(0xFFea2f59);
   final Color amethystSmoke = const Color(0xFFA675A1);
   final Color grafite = const Color(0xFF466365);
 
-  int _selectedIndex = 0;
+  // Função para carregar as notificações do Banco
+  Future<List<NotificationModel>> _fetchNotifications() async {
+    return await DBHelper().getNotifications();
+  }
 
-  // 2. A Lista Dinâmica (Começa vazia)
-  // Em vez de um número fixo, o app vai olhar para essa variável
-  List<NotificationItem> myNotifications = [];
-
-  // Função temporária para simular a criação (será substituída pela tela de criar depois)
-  void _simulateAddNotification() {
-    setState(() {
-      // Adiciona um exemplo do Instagram
-      myNotifications.add(
-        NotificationItem(
-          appName: 'Instagram',
-          message: 'Alguém curtiu sua foto nova',
-          time: '${DateTime.now().hour}:${DateTime.now().minute}',
-          icon: Icons.camera_alt, // Ou FontAwesomeIcons.instagram se tiver o pacote
-          iconColor: Colors.pinkAccent,
-        ),
-      );
-      
-      // Se quiser testar o Twitter/X, descomente abaixo e comente o de cima:
-      /*
-      myNotifications.add(
-        NotificationItem(
-          appName: 'Twitter',
-          message: 'Elon Musk postou algo bizarro...',
-          time: 'Agora',
-          icon: Icons.alternate_email, 
-          iconColor: Colors.blue,
-        ),
-      );
-      */
-    });
+  // Função para deletar
+  void _deleteNotification(int id) async {
+    await DBHelper().deleteNotification(id);
+    setState(() {}); // Recarrega a tela para sumir o item
   }
 
   @override
@@ -77,12 +38,10 @@ class _NotificationHomeScreenState extends State<NotificationHomeScreen> {
         elevation: 0,
         title: const Text('Minhas Notificações', style: TextStyle(color: Colors.white)),
         actions: [
-          IconButton(icon: Icon(Icons.delete_outline, color: amethystSmoke), 
+          IconButton(
+            icon: Icon(Icons.delete_sweep_outlined, color: amethystSmoke), 
             onPressed: () {
-              // Botãozinho extra pra limpar a lista e testar o estado vazio
-              setState(() {
-                myNotifications.clear();
-              });
+              // Futuro: Implementar "Limpar Tudo"
             }
           ),
         ],
@@ -90,62 +49,74 @@ class _NotificationHomeScreenState extends State<NotificationHomeScreen> {
       
       body: Column(
         children: [
-          // Seus filtros continuam aqui...
           const SizedBox(height: 20),
           
-          // 3. A Lógica da Lista
+          // --- LISTA DO BANCO DE DADOS ---
           Expanded(
-            child: myNotifications.isEmpty 
-              ? _buildEmptyState() // Se estiver vazia, mostra desenho
-              : ListView.builder(  // Se tiver itens, mostra a lista
+            child: FutureBuilder<List<NotificationModel>>(
+              future: _fetchNotifications(), // Busca os dados do SQL
+              builder: (context, snapshot) {
+                // 1. Carregando...
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Center(child: CircularProgressIndicator(color: grapeSoda));
+                }
+                
+                // 2. Se der erro ou lista vazia
+                if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                  return _buildEmptyState();
+                }
+
+                // 3. Sucesso! Mostra a lista
+                final notifications = snapshot.data!;
+                
+                return ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  // O segredo: itemCount é o tamanho da lista real!
-                  itemCount: myNotifications.length, 
+                  itemCount: notifications.length, 
                   itemBuilder: (context, index) {
-                    // Pega o item específico dessa linha
-                    final item = myNotifications[index];
+                    final item = notifications[index];
                     return _buildNotificationCard(item);
                   },
-                ),
+                );
+              },
+            ),
           ),
         ],
       ),
       
-          floatingActionButton: FloatingActionButton(
-            backgroundColor: grapeSoda,
-            onPressed: () {
-              Navigator.of(context).push(
-                PageRouteBuilder(
-                  opaque: false,
-                  barrierColor: Colors.black.withOpacity(0.55),
-                  barrierDismissible: true,
-                  transitionDuration: const Duration(milliseconds: 500),
-                  reverseTransitionDuration: const Duration(milliseconds: 400),
-                  pageBuilder: (context, animation, secondaryAnimation) {
-                    return const AddNotificationScreen();
-                  },
-                  transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                    // Animação: entra da direita para a esquerda
-                    const begin = Offset(1.0, 0.0);   // começa fora da tela à direita
-                    const end = Offset.zero;          // termina na posição final
-                    const curve = Curves.easeOutCubic;
+      // Botão Flutuante (+) com animação
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: grapeSoda,
+        onPressed: () async {
+          // Navega e ESPERA (await) o resultado
+          final result = await Navigator.of(context).push(
+            PageRouteBuilder(
+              opaque: false,
+              barrierColor: Colors.black.withOpacity(0.55),
+              barrierDismissible: true,
+              transitionDuration: const Duration(milliseconds: 500),
+              reverseTransitionDuration: const Duration(milliseconds: 400),
+              pageBuilder: (context, animation, secondaryAnimation) => const AddNotificationScreen(),
+              transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                const begin = Offset(1.0, 0.0);
+                const end = Offset.zero;
+                const curve = Curves.easeOutCubic;
+                var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+                return SlideTransition(position: animation.drive(tween), child: child);
+              },
+            ),
+          );
 
-                    var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-
-                    return SlideTransition(
-                      position: animation.drive(tween),
-                      child: child,
-                    );
-                  },
-                ),
-              );
-            },
-            child: const Icon(Icons.add, color: Colors.white),
-          ),
+          // Se salvou algo novo, atualiza a lista
+          if (result == true) {
+            setState(() {});
+          }
+        },
+        child: const Icon(Icons.add, color: Colors.white),
+      ),
     );
   }
 
-  // Widget para quando não tem notificações
+  // Tela de "Nada por aqui"
   Widget _buildEmptyState() {
     return Center(
       child: Column(
@@ -166,62 +137,72 @@ class _NotificationHomeScreenState extends State<NotificationHomeScreen> {
     );
   }
 
-  // Widget do Card atualizado para receber DADOS
-  Widget _buildNotificationCard(NotificationItem item) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: grafite.withOpacity(0.25),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
+  // O CARD DE NOTIFICAÇÃO (Aqui está a mágica do ícone)
+  Widget _buildNotificationCard(NotificationModel item) {
+    return Dismissible(
+      key: Key(item.id.toString()), // Chave única para o arraste funcionar
+      background: Container(
+        color: Colors.red.withOpacity(0.8),
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        child: const Icon(Icons.delete, color: Colors.white),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Ícone Dinâmico
-            Container(
-              height: 48,
-              width: 48,
-              decoration: BoxDecoration(
-                color: spaceIndigo,
-                shape: BoxShape.circle,
-                border: Border.all(color: item.iconColor.withOpacity(0.5)),
+      direction: DismissDirection.endToStart, // Só arrasta da direita pra esquerda
+      onDismissed: (direction) {
+        if (item.id != null) _deleteNotification(item.id!);
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        decoration: BoxDecoration(
+          color: grafite.withOpacity(0.25),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withOpacity(0.05)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center, 
+            children: [
+              
+              AppIconWidget(packageName: item.packageName),
+
+              const SizedBox(width: 16),
+              
+              // Textos
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        // Nome do App (Ex: Airbnb)
+                        Text(
+                          item.appName, 
+                          style: const TextStyle(
+                              color: Colors.white, fontWeight: FontWeight.w600),
+                        ),
+                        // Horário
+                        Text(
+                          "${item.hour.toString().padLeft(2, '0')}:${item.minute.toString().padLeft(2, '0')}",
+                          style: TextStyle(color: amethystSmoke, fontSize: 12)
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    // Mensagem
+                    Text(
+                      item.message,
+                      style: TextStyle(
+                          color: Colors.white.withOpacity(0.7), fontSize: 14),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
               ),
-              child: Icon(
-                item.icon,
-                color: item.iconColor,
-                size: 24,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        item.appName, // Nome do App dinâmico
-                        style: const TextStyle(
-                            color: Colors.white, fontWeight: FontWeight.w600),
-                      ),
-                      Text(item.time,
-                          style: TextStyle(color: amethystSmoke, fontSize: 12)),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    item.message, // Mensagem dinâmica
-                    style: TextStyle(
-                        color: Colors.white.withOpacity(0.7), fontSize: 14),
-                  ),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
