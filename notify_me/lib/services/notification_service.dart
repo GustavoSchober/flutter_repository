@@ -55,54 +55,66 @@ class NotificationService {
     }
   }
 
-  Future<void> scheduleNotification({
-    required int id,
-    required String title,
-    required String body,
-    required int hour,
-    required int minute,
-    required String payload,
-  }) async {
-    
-    final now = tz.TZDateTime.now(tz.local);
-    var scheduledDate = tz.TZDateTime(
-      tz.local,
-      now.year,
-      now.month,
-      now.day,
-      hour,
-      minute,
-    );
+    // --- AGENDAR ---
+      Future<void> scheduleNotification({
+        required int id,
+        required String title,
+        required String body,
+        required int hour,
+        required int minute,
+        required String payload,
+      }) async {
+        
+        final now = tz.TZDateTime.now(tz.local);
+        var scheduledDate = tz.TZDateTime(
+          tz.local,
+          now.year,
+          now.month,
+          now.day,
+          hour,
+          minute,
+        );
 
-    if (scheduledDate.isBefore(now)) {
-      scheduledDate = scheduledDate.add(const Duration(days: 1));
-    }
+        if (scheduledDate.isBefore(now)) {
+          scheduledDate = scheduledDate.add(const Duration(days: 1));
+        }
 
-    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-      'notify_me_channel',
-      'Lembretes',
-      channelDescription: 'Canal principal',
-      importance: Importance.max,
-      priority: Priority.high,
-    );
+        print("🕒 AGORA:     $now");
+        print("⏰ AGENDADO:  $scheduledDate");
 
-    const NotificationDetails notificationDetails = NotificationDetails(
-      android: androidDetails,
-    );
+        // CONFIGURAÇÃO TURBINADA V3 🚀
+        const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+          'canal_lembretes_v3',   // <--- MUDAMOS PARA V3 (Isso reseta as configs no Android)
+          'Lembretes Importantes', // Nome que aparece nas configs do Android
+          channelDescription: 'Canal para notificações de apps',
+          importance: Importance.max, // Importância Máxima (Faz barulho e aparece pop-up)
+          priority: Priority.high,    // Prioridade Alta
+          
+          // Configurações de Som e Vibração
+          playSound: true,
+          enableVibration: true,
+          
+          // Garante que apareça na tela de bloqueio
+          visibility: NotificationVisibility.public,
+        );
 
-    await flutterLocalNotificationsPlugin.zonedSchedule(
-      id,
-      title,
-      body,
-      scheduledDate,
-      notificationDetails,
-      androidAllowWhileIdle: true,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-      matchDateTimeComponents: DateTimeComponents.time,
-      payload: payload,
-    );
-  }
+        const NotificationDetails notificationDetails = NotificationDetails(
+          android: androidDetails,
+        );
+
+        await flutterLocalNotificationsPlugin.zonedSchedule(
+          id,
+          title,
+          body,
+          scheduledDate,
+          notificationDetails,
+          androidAllowWhileIdle: true,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+          matchDateTimeComponents: DateTimeComponents.time,
+          payload: payload,
+        );
+      }
 
   Future<void> cancelNotification(int id) async {
     await flutterLocalNotificationsPlugin.cancel(id);
