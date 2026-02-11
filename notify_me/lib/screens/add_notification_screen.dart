@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:device_apps/device_apps.dart';
 import '../models/notification_model.dart';
 import '../database/db_helper.dart';
+import '../services/notification_service.dart';
 import '../widgets/app_icon_widget.dart'; 
 
 class AddNotificationScreen extends StatefulWidget {
@@ -181,7 +182,7 @@ class _AddNotificationScreenState extends State<AddNotificationScreen> {
                                 return;
                             }
 
-                            // Criar o Objeto NotificationModel
+                            // 1. Cria o modelo
                             final notification = NotificationModel(
                               appName: _selectedApp!.appName,
                               packageName: _selectedApp!.packageName,
@@ -190,11 +191,23 @@ class _AddNotificationScreenState extends State<AddNotificationScreen> {
                               minute: _selectedTime.minute,
                             );
 
-                            // Salvar no Banco
-                            await DBHelper().insertNotification(notification);
+                            // 2. Salva no Banco e PEGA O ID GERADO
+                            final int newId = await DBHelper().insertNotification(notification);
+
+                            // 3. AGORA SIM: Chama o Motor de Notificação 🔔
+                            await NotificationService().scheduleNotification(
+                              id: newId,
+                              title: 'Hora de usar: ${_selectedApp!.appName}',
+                              body: _messageController.text,
+                              hour: _selectedTime.hour,
+                              minute: _selectedTime.minute,
+                              payload: _selectedApp!.packageName,
+                            );
+
+                            print("SUCESSO: Salvo no banco ID $newId e Agendado para ${_selectedTime.format(context)}");
 
                             if (mounted) {
-                              Navigator.pop(context, true); // Retorna true para atualizar a Home
+                              Navigator.pop(context, true);
                             }
                           },
                           child: const Text('Agendar Notificação', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
