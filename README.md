@@ -5,35 +5,56 @@
 A new Flutter project.
 
 ## Getting Started
-# Notify Me 📱🔔
 
-Um aplicativo Flutter que permite agendar notificações personalizadas para abrir outros aplicativos instalados no seu dispositivo Android.
+Notify Me:
 
-## Sobre o Projeto
+A Flutter application that allows users to schedule custom notifications to launch other installed Android apps.
 
-Notify Me é um app simples e intuitivo que possibilita ao usuário:
-- Escolher um aplicativo dentre os instalados no dispositivo;
-- Escrever uma mensagem personalizada;
-- Selecionar uma data e hora para receber uma notificação.
+Overview: 
 
-No horário definido, uma notificação é exibida no sistema. Ao clicar nela, o aplicativo escolhido é aberto automaticamente.
+Notify Me is a lightweight and intuitive mobile application that enables users to:
+- Select any app installed on their Android device
+- Write a custom reminder message
+- Schedule a specific date and time for a notification
+- When the scheduled time is reached, the system displays a local notification. Tapping the notification automatically launches the selected application.
 
-Este projeto foi desenvolvido como um MVP (Produto Mínimo Viável) para demonstrar a integração de notificações locais agendadas com Flutter, incluindo:
-- Agendamento exato com suporte a fusos horários;
-- Notificações diárias recorrentes;
-- Persistência dos lembretes em banco de dados SQLite;
-- Abertura de apps externos via package name.
+This project was built as a Minimum Viable Product (MVP) to demonstrate how to integrate precise local notifications in Flutter, including deep linking to external applications.
 
-## ✨ Funcionalidades
+Features:
+- Installed Apps Listing
+Displays all installed applications on the device (requires QUERY_ALL_PACKAGES permission).
 
-- 📋 **Lista de aplicativos**: exibe todos os apps instalados no dispositivo (requer permissão `QUERY_ALL_PACKAGES`).
-- ✏️ **Personalização**: defina uma mensagem e o horário (hora e minuto) para a notificação.
-- 🔔 **Notificações precisas**: utiliza alarmes exatos (`SCHEDULE_EXACT_ALARM`) para garantir que a notificação dispare mesmo com economia de bateria.
-- 🔁 **Repetição diária**: a notificação se repete todos os dias no mesmo horário.
-- 👆 **Ação ao toque**: ao clicar na notificação, o app selecionado é aberto.
-- 💾 **Persistência local**: os lembretes são salvos em SQLite, permitindo gerenciamento futuro.
+- Custom Reminders
+Define a personalized message and choose the exact time (hour and minute for the notification).
 
-🛠️ Tecnologias Utilizadas
+- Exact Alarm Scheduling
+Uses SCHEDULE_EXACT_ALARM to ensure notifications are triggered precisely, even under battery optimization policies.
 
-- [Flutter](https://flutter.dev/)
-- [Dart](https://dart.dev/)
+- Daily Recurring Notifications
+Automatically repeats notifications every day at the selected time.
+
+- Launch External Apps
+Opens the selected application via its package name when the notification is tapped.
+
+- Local Persistence
+Reminders are stored using SQLite, allowing future management and scalability.
+
+Architecture Highlights
+This project demonstrates:
+- Time zone–aware notification scheduling
+- Exact alarms integration on Android
+- Local database persistence with SQLite
+- Interaction with installed apps via package names
+- Clean and simple MVP architecture
+
+Tech Stack:
+- Flutter
+- Dart
+- SQLite
+
+Permissions:
+The app requires the following Android permissions:
+- QUERY_ALL_PACKAGES — to list installed applications
+- SCHEDULE_EXACT_ALARM — to trigger precise scheduled notifications
+Make sure to grant these permissions when prompted.
+

@@ -14,20 +14,25 @@ subprojects {
 }
 
 subprojects {
-
     afterEvaluate {
+        // Procura se o subprojeto tem o plugin 'android' (se é um app ou plugin Flutter)
         val android = extensions.findByName("android")
         if (android != null) {
+            // Força o compileSdkVersion para 35 usando reflexão (para evitar erros de tipo no Kotlin)
+            val compileSdkVersionMethod = android.javaClass.getMethod("compileSdkVersion", Int::class.javaPrimitiveType)
+            compileSdkVersionMethod.invoke(android, 35)
+
+            // Correção extra: Se o plugin for muito velho e não tiver 'namespace' definido (exige no Android novo)
+            // nós definimos um namespace padrão para ele não quebrar o build.
             try {
                 val getNamespace = android.javaClass.getMethod("getNamespace")
-                val currentNamespace = getNamespace.invoke(android)
-                
-                if (currentNamespace == null) {
-                    val setNamespace = android.javaClass.getMethod("setNamespace", String::class.java)
+                val setNamespace = android.javaClass.getMethod("setNamespace", String::class.java)
+
+                if (getNamespace.invoke(android) == null) {
                     setNamespace.invoke(android, project.group.toString())
-                    println("FIX: Namespace aplicado manualmente para: ${project.name}")
                 }
             } catch (e: Exception) {
+                // Se der erro nessa parte do namespace, segue o jogo (pode ser versão antiga do Gradle)
             }
         }
     }
