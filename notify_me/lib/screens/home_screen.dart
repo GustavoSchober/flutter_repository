@@ -3,6 +3,7 @@ import 'package:notify_me/screens/add_notification_screen.dart';
 import '../models/notification_model.dart'; // Import do Modelo
 import '../database/db_helper.dart';       // Import do Banco
 import '../widgets/app_icon_widget.dart';  // <--- Import do Widget de Ícone que criamos
+import '../services/notification_service.dart';
 
 class NotificationHomeScreen extends StatefulWidget {
   const NotificationHomeScreen({super.key});
@@ -25,8 +26,13 @@ class _NotificationHomeScreenState extends State<NotificationHomeScreen> {
 
   // Função para deletar
   void _deleteNotification(int id) async {
+    // 1. PRIMEIRO: Cancela no sistema Android (Mata o fantasma antes que ele nasça)
+    await NotificationService().cancelNotification(id);
+
+    // 2. DEPOIS: Apaga do banco de dados visual
     await DBHelper().deleteNotification(id);
-    setState(() {}); // Recarrega a tela para sumir o item
+
+    setState(() {});
   }
 
   @override

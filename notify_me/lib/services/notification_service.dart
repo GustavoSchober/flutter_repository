@@ -3,6 +3,7 @@ import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'dart:io';
+import 'package:device_apps/device_apps.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
