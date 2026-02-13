@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:device_apps/device_apps.dart';
+import 'package:installed_apps/installed_apps.dart';
+import 'package:installed_apps/app_info.dart';
 
 class AppIconWidget extends StatelessWidget {
   final String packageName;
@@ -13,39 +14,38 @@ class AppIconWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<Application?>(
-      // Pergunta pro Android quem é esse app e pede o ícone
-      future: DeviceApps.getApp(packageName, true),
+    return FutureBuilder<AppInfo?>(
+      // Busca informações do app pelo pacote
+      future: InstalledApps.getAppInfo(packageName, null),
       builder: (context, snapshot) {
-        // Se achou o app e ele tem ícone
-        if (snapshot.hasData && snapshot.data is ApplicationWithIcon) {
-          final app = snapshot.data as ApplicationWithIcon;
+        if (snapshot.hasData && snapshot.data != null && snapshot.data!.icon != null) {
           return Container(
             width: size,
             height: size,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               image: DecorationImage(
-                image: MemoryImage(app.icon), // Converte bytes em imagem
+                // O ícone agora vem como Uint8List direto
+                image: MemoryImage(snapshot.data!.icon!), 
                 fit: BoxFit.cover,
               ),
             ),
           );
         }
 
-        // Se ainda tá carregando ou não achou (Fallback), mostra o sino
+        // Fallback (Sino)
         return Container(
           width: size,
           height: size,
           decoration: BoxDecoration(
-            color: const Color(0xFF25283D), // Space Indigo
+            color: const Color(0xFF25283D),
             shape: BoxShape.circle,
             border: Border.all(color: const Color(0xFFA675A1).withOpacity(0.3)),
           ),
-          child: const Icon(
+          child: Icon(
             Icons.notifications_active,
-            color: Color(0xFFA675A1), // Amethyst Smoke
-            size: 24,
+            color: const Color(0xFFA675A1),
+            size: size * 0.5,
           ),
         );
       },

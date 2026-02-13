@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:device_apps/device_apps.dart';
+import 'package:installed_apps/installed_apps.dart';
+import 'package:installed_apps/app_info.dart';
 import '../models/notification_model.dart';
 import '../database/db_helper.dart';
 import '../services/notification_service.dart';
@@ -23,8 +24,8 @@ class _AddNotificationScreenState extends State<AddNotificationScreen> {
   TimeOfDay _selectedTime = TimeOfDay.now();
 
   // Variáveis para os apps
-  List<Application> _apps = [];
-  Application? _selectedApp;
+  List<AppInfo> _apps = [];
+  AppInfo? _selectedApp;
   bool _isLoadingApps = true;
 
   // Controller do Texto
@@ -43,15 +44,13 @@ class _AddNotificationScreenState extends State<AddNotificationScreen> {
   }
 
   Future<void> _loadInstalledApps() async {
-    // CORREÇÃO 3: includeSystemApps: true
-    // Isso garante que apareça TUDO (Gmail, Agenda, Calculadora, etc)
-    final apps = await DeviceApps.getInstalledApplications(
-      includeAppIcons: true,
-      includeSystemApps: true, 
-      onlyAppsWithLaunchIntent: true, // Mantemos true para não pegar processos ocultos do Android
-    );
+    // Busca apps com ícones. O true/true significa "com icone" e "com pacote"
+    List<AppInfo> apps = await InstalledApps.getInstalledApps(true, true);
+    
+    // Remove apps que não têm nome (processos de sistema estranhos)
+    apps = apps.where((app) => app.name != null).toList();
 
-    apps.sort((a, b) => a.appName.toLowerCase().compareTo(b.appName.toLowerCase()));
+    apps.sort((a, b) => a.name!.toLowerCase().compareTo(b.name!.toLowerCase()));
 
     if (mounted) {
       setState(() {
@@ -184,7 +183,7 @@ class _AddNotificationScreenState extends State<AddNotificationScreen> {
 
                             // 1. Cria o modelo
                             final notification = NotificationModel(
-                              appName: _selectedApp!.appName,
+                              appName: _selectedApp!.name!,
                               packageName: _selectedApp!.packageName,
                               message: _messageController.text,
                               hour: _selectedTime.hour,
@@ -197,7 +196,7 @@ class _AddNotificationScreenState extends State<AddNotificationScreen> {
                             // 3. AGORA SIM: Chama o Motor de Notificação 🔔
                             await NotificationService().scheduleNotification(
                               id: newId,
-                              title: 'Hora de usar: ${_selectedApp!.appName}',
+                              title: 'Hora de usar: ${_selectedApp!.name!}',
                               body: _messageController.text,
                               hour: _selectedTime.hour,
                               minute: _selectedTime.minute,
@@ -241,7 +240,7 @@ class _AddNotificationScreenState extends State<AddNotificationScreen> {
         color: grafite.withOpacity(0.35),
         borderRadius: BorderRadius.circular(14),
       ),
-      child: DropdownButton<Application>(
+      child: DropdownButton<AppInfo>(
         isExpanded: true,
         dropdownColor: grafite.withOpacity(0.95),
         menuMaxHeight: 300,
@@ -252,18 +251,18 @@ class _AddNotificationScreenState extends State<AddNotificationScreen> {
         ),
         underline: const SizedBox(),
         icon: Icon(Icons.arrow_drop_down, color: grapeSoda),
-        items: _apps.map((Application app) {
-          return DropdownMenuItem<Application>(
+        items: _apps.map((AppInfo app) {
+          return DropdownMenuItem<AppInfo>(
             value: app,
             child: Row(
               children: [
-                app is ApplicationWithIcon 
-                  ? Image.memory(app.icon, width: 24, height: 24)
+                app.icon != null
+                  ? Image.memory(app.icon!, width: 24, height: 24)
                   : Icon(Icons.android, color: Colors.white, size: 24),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    app.appName,
+                    app.name!,
                     style: const TextStyle(color: Colors.white),
                     overflow: TextOverflow.ellipsis, 
                   ),
@@ -272,7 +271,7 @@ class _AddNotificationScreenState extends State<AddNotificationScreen> {
             ),
           );
         }).toList(),
-        onChanged: (Application? newValue) {
+        onChanged: (AppInfo? newValue) {
           setState(() {
             _selectedApp = newValue;
           });

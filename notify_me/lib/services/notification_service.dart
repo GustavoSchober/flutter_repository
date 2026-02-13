@@ -3,7 +3,7 @@ import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'dart:io';
-import 'package:device_apps/device_apps.dart';
+import 'package:installed_apps/installed_apps.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -55,14 +55,18 @@ class NotificationService {
     await _requestPermissions();
   }
   
-  // --- FUNÇÃO AUXILIAR PARA ABRIR O APP (DRY - Don't Repeat Yourself) ---
+  // --- FUNÇÃO AUXILIAR PARA ABRIR O APP ---
   Future<void> _openTargetApp(String? payload) async {
     if (payload != null && payload.isNotEmpty) {
       print("🚀 Tentando abrir pacote: $payload");
-      bool isOpened = await DeviceApps.openApp(payload);
       
-      if (!isOpened) {
-        print("❌ Falha ao abrir o app. Talvez ele tenha sido desinstalado?");
+      // O comando mudou ligeiramente no novo pacote
+      bool isOpened = await InstalledApps.startApp(payload) ?? false;
+      
+      // Nota: InstalledApps.startApp retorna void ou bool dependendo da versão, 
+      // mas geralmente se não der erro, abriu.
+      if (isOpened == false) { 
+         print("❌ Falha ao abrir o app."); 
       }
     }
   }
