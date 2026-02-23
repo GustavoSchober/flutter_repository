@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:installed_apps/installed_apps.dart';
 import 'package:installed_apps/app_info.dart';
 import '../models/notification_model.dart';
 import '../database/db_helper.dart';
 import '../services/notification_service.dart';
+import '../services/app_cache_service.dart';
 import '../widgets/app_icon_widget.dart'; 
 
 class AddNotificationScreen extends StatefulWidget {
@@ -34,8 +34,6 @@ class _AddNotificationScreenState extends State<AddNotificationScreen> {
   // 1 = Segunda, 7 = Domingo (Padrão DateTime do Dart)
   List<int> _selectedDays = [1, 2, 3, 4, 5, 6, 7]; // Por padrão, todos os dias
 
-
-
   @override
   void dispose() {
     _messageController.dispose();
@@ -49,13 +47,8 @@ class _AddNotificationScreenState extends State<AddNotificationScreen> {
   }
 
   Future<void> _loadInstalledApps() async {
-    // Busca apps com ícones. O true/true significa "com icone" e "com pacote"
-    List<AppInfo> apps = await InstalledApps.getInstalledApps(true, true);
-    
-    // Remove apps que não têm nome (processos de sistema estranhos)
-    apps = apps.where((app) => app.name != null).toList();
-
-    apps.sort((a, b) => a.name!.toLowerCase().compareTo(b.name!.toLowerCase()));
+    // Usa o cache em memória ao invés de ler do sistema toda vez
+    final apps = await AppCacheService().loadApps();
 
     if (mounted) {
       setState(() {
@@ -68,7 +61,7 @@ class _AddNotificationScreenState extends State<AddNotificationScreen> {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
-    // CORREÇÃO 2: Pegamos a altura do teclado
+    // Pegamos a altura do teclado
     final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
 
     return Material(
@@ -84,7 +77,7 @@ class _AddNotificationScreenState extends State<AddNotificationScreen> {
           Align(
             alignment: Alignment.bottomRight,
             child: Padding(
-              // CORREÇÃO 2: Adicionamos o keyboardHeight na margem inferior
+              // Adicionamos o keyboardHeight na margem inferior
               // Se o teclado abrir, o padding aumenta e empurra o modal pra cima
               padding: EdgeInsets.only(
                 right: 20, 
@@ -93,7 +86,7 @@ class _AddNotificationScreenState extends State<AddNotificationScreen> {
               child: Container(
                 // Constraints para não ficar gigante nem minúsculo
                 constraints: BoxConstraints(
-                  maxWidth: size.width * 0.85, // ⬅️ Expandimos para 85% da tela
+                  maxWidth: size.width * 0.85, // Expandimos para 85% da tela
                   maxHeight: size.height * 0.65,
                 ),
                 width: size.width * 0.85.clamp(340.0, 500.0),
@@ -111,7 +104,7 @@ class _AddNotificationScreenState extends State<AddNotificationScreen> {
                   ],
                 ),
 
-                // CORREÇÃO 1: SingleChildScrollView e Column com mainAxisSize.min
+                // SingleChildScrollView e Column com mainAxisSize.min
                 // Isso resolve o erro amarelo (Overflow) e permite rolar se o teclado apertar a tela
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
@@ -133,7 +126,7 @@ class _AddNotificationScreenState extends State<AddNotificationScreen> {
                       ),
                       const SizedBox(height: 10),
 
-                      Center(
+                      const Center(
                         child: Text(
                           "Nova Notificação",
                           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
@@ -144,7 +137,7 @@ class _AddNotificationScreenState extends State<AddNotificationScreen> {
                       // Campos do formulário
                       Text('Aplicativo', style: TextStyle(color: amethystSmoke, fontSize: 14)),
                       const SizedBox(height: 8),
-                      _buildDropdown(),
+                      _buildAppSelector(), // <--- MUDAMOS PARA O SELETOR NOVO AQUI
 
                       const SizedBox(height: 20),
 
@@ -161,9 +154,8 @@ class _AddNotificationScreenState extends State<AddNotificationScreen> {
                       const SizedBox(height: 20),
                       Text('Dias da Semana', style: TextStyle(color: amethystSmoke, fontSize: 14)),
                       const SizedBox(height: 8),
-                      _buildDaysSelector(), // <--- ADICIONE AQUI
+                      _buildDaysSelector(), 
                       const SizedBox(height: 24),
-
 
                       // Botão Agendar
                       SizedBox(
@@ -201,11 +193,10 @@ class _AddNotificationScreenState extends State<AddNotificationScreen> {
                               days: _selectedDays.join(','),
                             );
 
-
                             // 2. Salva no Banco e PEGA O ID GERADO
                             final int newId = await DBHelper().insertNotification(notification);
 
-                            // 3. AGORA SIM: Chama o Motor de Notificação 🔔
+                            // 3. AGORA SIM: Chama o Motor de Notificação 🔔 (Sem await para ser rápido)
                             NotificationService().scheduleNotification(
                               id: newId,
                               title: 'Hora de usar: ${_selectedApp!.name!}',
@@ -215,7 +206,6 @@ class _AddNotificationScreenState extends State<AddNotificationScreen> {
                               payload: _selectedApp!.packageName,
                               days: _selectedDays,
                             );
-
 
                             print("SUCESSO: Salvo no banco ID $newId e Agendado para ${_selectedTime.format(context)}");
 
@@ -237,9 +227,9 @@ class _AddNotificationScreenState extends State<AddNotificationScreen> {
     );
   }
 
-  // --- WIDGETS AUXILIARES (Mesmos de antes) ---
+  // --- WIDGETS AUXILIARES ---
 
-  Widget _buildDropdown() {
+  Widget _buildAppSelector() {
     if (_isLoadingApps) {
       return Container(
         height: 50,
@@ -248,49 +238,118 @@ class _AddNotificationScreenState extends State<AddNotificationScreen> {
       );
     }
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      decoration: BoxDecoration(
-        color: grafite.withOpacity(0.35),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: DropdownButton<AppInfo>(
-        isExpanded: true,
-        dropdownColor: grafite.withOpacity(0.95),
-        menuMaxHeight: 300,
-        value: _selectedApp,
-        hint: Text(
-          "Selecione o app",
-          style: TextStyle(color: Colors.white.withOpacity(0.6)),
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: _showAppSearchModal, // Chama a gaveta de pesquisa
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: grafite.withOpacity(0.35),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.transparent), 
         ),
-        underline: const SizedBox(),
-        icon: Icon(Icons.arrow_drop_down, color: grapeSoda),
-        items: _apps.map((AppInfo app) {
-          return DropdownMenuItem<AppInfo>(
-            value: app,
-            child: Row(
-              children: [
-                app.icon != null
-                  ? Image.memory(app.icon!, width: 24, height: 24)
-                  : Icon(Icons.android, color: Colors.white, size: 24),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    app.name!,
-                    style: const TextStyle(color: Colors.white),
-                    overflow: TextOverflow.ellipsis, 
-                  ),
+        child: Row(
+          children: [
+            _selectedApp != null && _selectedApp!.icon != null
+                ? Image.memory(_selectedApp!.icon!, width: 24, height: 24)
+                : Icon(Icons.android, color: Colors.white.withOpacity(0.5), size: 24),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                _selectedApp != null ? _selectedApp!.name! : "Selecione o aplicativo",
+                style: TextStyle(
+                  color: _selectedApp != null ? Colors.white : Colors.white.withOpacity(0.4), 
+                  fontSize: 16
                 ),
-              ],
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-          );
-        }).toList(),
-        onChanged: (AppInfo? newValue) {
-          setState(() {
-            _selectedApp = newValue;
-          });
-        },
+            Icon(Icons.search, color: grapeSoda), // Ícone de lupa
+          ],
+        ),
       ),
+    );
+  }
+
+  void _showAppSearchModal() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true, // Permite que a gaveta ocupe mais espaço na tela
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        // Copiamos a lista original para não perder os dados ao apagar a pesquisa
+        List<AppInfo> filteredApps = List.from(_apps);
+        
+        // StatefulBuilder permite atualizar a tela DENTRO do modal
+        return StatefulBuilder(
+          builder: (context, setStateModal) {
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.75, // 75% da tela
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+              decoration: BoxDecoration(
+                color: spaceIndigo,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(
+                children: [
+                  // A BARRA DE PESQUISA
+                  TextField(
+                    autofocus: true, // Já abre o teclado direto
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      hintText: 'Digite o nome do app...',
+                      hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
+                      prefixIcon: Icon(Icons.search, color: amethystSmoke),
+                      filled: true,
+                      fillColor: grafite.withOpacity(0.35),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14), 
+                        borderSide: BorderSide.none
+                      ),
+                    ),
+                    onChanged: (value) {
+                      setStateModal(() {
+                        // AQUI ESTÁ A LÓGICA DO FILTRO (Ignora maiúsculas/minúsculas)
+                        filteredApps = _apps.where((app) {
+                          return app.name!.toLowerCase().contains(value.toLowerCase());
+                        }).toList();
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // A LISTA DE RESULTADOS
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: filteredApps.length,
+                      itemBuilder: (context, index) {
+                        final app = filteredApps[index];
+                        return ListTile(
+                          contentPadding: const EdgeInsets.symmetric(vertical: 4),
+                          leading: app.icon != null 
+                            ? Image.memory(app.icon!, width: 40, height: 40)
+                            : const Icon(Icons.android, color: Colors.white),
+                          title: Text(
+                            app.name!, 
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500)
+                          ),
+                          onTap: () {
+                            // Quando clica, salva a escolha e fecha a gaveta
+                            setState(() {
+                              _selectedApp = app;
+                            });
+                            Navigator.pop(context);
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -300,7 +359,6 @@ class _AddNotificationScreenState extends State<AddNotificationScreen> {
       style: const TextStyle(color: Colors.white),
       maxLines: 2,
       minLines: 1,
-      // keyboardType: TextInputType.text, // Opcional
       decoration: InputDecoration(
         hintText: 'Digite a mensagem...',
         hintStyle: TextStyle(color: Colors.white.withOpacity(0.35)),
