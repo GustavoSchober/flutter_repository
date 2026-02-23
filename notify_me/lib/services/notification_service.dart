@@ -81,18 +81,10 @@ class NotificationService {
     }
   }
 
-  // --- AGENDAR ---
-  Future<void> scheduleNotification({
-    required int id,
-    required String title,
-    required String body,
-    required int hour,
-    required int minute,
-    required String payload,
-  }) async {
-    
-    final now = tz.TZDateTime.now(tz.local);
-    var scheduledDate = tz.TZDateTime(
+  // --- FUNÇÃO AUXILIAR DE TEMPO ---
+  tz.TZDateTime _nextInstanceOfWeekday(int weekday, int hour, int minute) {
+    final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
+    tz.TZDateTime scheduledDate = tz.TZDateTime(
       tz.local,
       now.year,
       now.month,
@@ -105,10 +97,38 @@ class NotificationService {
       scheduledDate = scheduledDate.add(const Duration(days: 1));
     }
 
-    print("🕒 AGORA:     $now");
-    print("⏰ AGENDADO:  $scheduledDate");
+    while (scheduledDate.weekday != weekday) {
+      scheduledDate = scheduledDate.add(const Duration(days: 1));
+    }
+    return scheduledDate;
+  }
 
-    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+  // --- AGENDAR ---
+  Future<void> scheduleNotification({
+    required int id,
+    required String title,
+    required String body,
+    required int hour,
+    required int minute,
+    required String payload,
+    required List<int> days, 
+  }) async {
+    
+    // 1. CAPTURA DO ÍCONE DINÂMICO 🖼️
+    // Vamos buscar a foto (ícone) do app alvo no sistema antes de agendar
+    AndroidBitmap<Object>? largeIcon;
+    try {
+      final appInfo = await InstalledApps.getAppInfo(payload, null);
+      if (appInfo != null && appInfo.icon != null) {
+        // Converte o ícone do formato do app para o formato que a notificação aceita
+        largeIcon = ByteArrayAndroidBitmap(appInfo.icon!);
+      }
+    } catch (e) {
+      print("⚠️ Erro ao carregar ícone para a notificação: $e");
+    }
+
+    // 2. CONFIGURAÇÃO DO ANDROID (Agora com o Large Icon)
+    AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
       'canal_lembretes_v3', 
       'Lembretes Importantes', 
       channelDescription: 'Canal para notificações de apps',
@@ -117,27 +137,41 @@ class NotificationService {
       playSound: true,
       enableVibration: true,
       visibility: NotificationVisibility.public,
+      largeIcon: largeIcon, // <--- A MÁGICA ACONTECE AQUI!
     );
 
-    const NotificationDetails notificationDetails = NotificationDetails(
+    NotificationDetails notificationDetails = NotificationDetails(
       android: androidDetails,
     );
 
-    await flutterLocalNotificationsPlugin.zonedSchedule(
-      id,
-      title,
-      body,
-      scheduledDate,
-      notificationDetails,
-      androidAllowWhileIdle: true,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-      matchDateTimeComponents: DateTimeComponents.time,
-      payload: payload,
-    );
+    // 3. O LOOP DOS DIAS (Mantido igualzinho)
+    for (int day in days) {
+      int uniqueId = int.parse("$id$day");
+      tz.TZDateTime scheduledDate = _nextInstanceOfWeekday(day, hour, minute);
+
+      print("⏰ Agendando ID $uniqueId para: $scheduledDate (Dia $day)");
+
+      await flutterLocalNotificationsPlugin.zonedSchedule(
+        uniqueId,
+        title,
+        body,
+        scheduledDate,
+        notificationDetails,
+        androidAllowWhileIdle: true,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
+        payload: payload,
+      );
+    }
   }
 
   Future<void> cancelNotification(int id) async {
-    await flutterLocalNotificationsPlugin.cancel(id);
+    // Para cancelar, temos que cancelar todas as combinações de dias (1 a 7)
+    for (int i = 1; i <= 7; i++) {
+      int uniqueId = int.parse("$id$i");
+      await flutterLocalNotificationsPlugin.cancel(uniqueId);
+    }
+    print("🗑️ Cancelados todos os alarmes do ID base $id");
   }
 }

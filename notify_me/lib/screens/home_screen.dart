@@ -4,6 +4,7 @@ import '../models/notification_model.dart'; // Import do Modelo
 import '../database/db_helper.dart';       // Import do Banco
 import '../widgets/app_icon_widget.dart';  // <--- Import do Widget de Ícone que criamos
 import '../services/notification_service.dart';
+import '../screens/edit_notification_screen.dart';
 
 class NotificationHomeScreen extends StatefulWidget {
   const NotificationHomeScreen({super.key});
@@ -157,57 +158,74 @@ class _NotificationHomeScreenState extends State<NotificationHomeScreen> {
       onDismissed: (direction) {
         if (item.id != null) _deleteNotification(item.id!);
       },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        decoration: BoxDecoration(
-          color: grafite.withOpacity(0.25),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withOpacity(0.05)),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center, 
-            children: [
-              
-              AppIconWidget(packageName: item.packageName),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () async {
+          // Navega para a tela de edição e espera o resultado
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => EditNotificationScreen(notification: item),
+            ),
+          );
 
-              const SizedBox(width: 16),
-              
-              // Textos
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        // Nome do App (Ex: Airbnb)
-                        Text(
-                          item.appName, 
-                          style: const TextStyle(
-                              color: Colors.white, fontWeight: FontWeight.w600),
-                        ),
-                        // Horário
-                        Text(
-                          "${item.hour.toString().padLeft(2, '0')}:${item.minute.toString().padLeft(2, '0')}",
-                          style: TextStyle(color: amethystSmoke, fontSize: 12)
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    // Mensagem
-                    Text(
-                      item.message,
-                      style: TextStyle(
-                          color: Colors.white.withOpacity(0.7), fontSize: 14),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
+          // Se a tela de edição retornar 'true' (salvou ou excluiu), atualizamos a lista
+          if (result == true) {
+            setState(() {});
+          }
+        },
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          decoration: BoxDecoration(
+            color: grafite.withOpacity(0.25),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withOpacity(0.05)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center, 
+              children: [
+                
+                AppIconWidget(packageName: item.packageName),
+
+                const SizedBox(width: 16),
+                
+                // Textos
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          // Nome do App (Ex: Airbnb)
+                          Text(
+                            item.appName, 
+                            style: const TextStyle(
+                                color: Colors.white, fontWeight: FontWeight.w600),
+                          ),
+                          // Horário
+                          Text(
+                            "${item.hour.toString().padLeft(2, '0')}:${item.minute.toString().padLeft(2, '0')}",
+                            style: TextStyle(color: amethystSmoke, fontSize: 12)
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      // Mensagem
+                      Text(
+                        item.message,
+                        style: TextStyle(
+                            color: Colors.white.withOpacity(0.7), fontSize: 14),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

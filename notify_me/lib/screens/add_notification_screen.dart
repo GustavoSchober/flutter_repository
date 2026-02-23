@@ -31,6 +31,11 @@ class _AddNotificationScreenState extends State<AddNotificationScreen> {
   // Controller do Texto
   final TextEditingController _messageController = TextEditingController();
 
+  // 1 = Segunda, 7 = Domingo (Padrão DateTime do Dart)
+  List<int> _selectedDays = [1, 2, 3, 4, 5, 6, 7]; // Por padrão, todos os dias
+
+
+
   @override
   void dispose() {
     _messageController.dispose();
@@ -88,10 +93,10 @@ class _AddNotificationScreenState extends State<AddNotificationScreen> {
               child: Container(
                 // Constraints para não ficar gigante nem minúsculo
                 constraints: BoxConstraints(
-                  maxWidth: size.width * 0.65, // Aumentei um pouco a largura para caber melhor os textos
-                  maxHeight: size.height * 0.6,
+                  maxWidth: size.width * 0.85, // ⬅️ Expandimos para 85% da tela
+                  maxHeight: size.height * 0.65,
                 ),
-                width: size.width * 0.65.clamp(280.0, 420.0),
+                width: size.width * 0.85.clamp(340.0, 500.0),
                 
                 decoration: BoxDecoration(
                   color: spaceIndigo,
@@ -153,7 +158,12 @@ class _AddNotificationScreenState extends State<AddNotificationScreen> {
                       const SizedBox(height: 8),
                       _buildTimePicker(),
 
+                      const SizedBox(height: 20),
+                      Text('Dias da Semana', style: TextStyle(color: amethystSmoke, fontSize: 14)),
+                      const SizedBox(height: 8),
+                      _buildDaysSelector(), // <--- ADICIONE AQUI
                       const SizedBox(height: 24),
+
 
                       // Botão Agendar
                       SizedBox(
@@ -188,20 +198,24 @@ class _AddNotificationScreenState extends State<AddNotificationScreen> {
                               message: _messageController.text,
                               hour: _selectedTime.hour,
                               minute: _selectedTime.minute,
+                              days: _selectedDays.join(','),
                             );
+
 
                             // 2. Salva no Banco e PEGA O ID GERADO
                             final int newId = await DBHelper().insertNotification(notification);
 
                             // 3. AGORA SIM: Chama o Motor de Notificação 🔔
-                            await NotificationService().scheduleNotification(
+                            NotificationService().scheduleNotification(
                               id: newId,
                               title: 'Hora de usar: ${_selectedApp!.name!}',
                               body: _messageController.text,
                               hour: _selectedTime.hour,
                               minute: _selectedTime.minute,
                               payload: _selectedApp!.packageName,
+                              days: _selectedDays,
                             );
+
 
                             print("SUCESSO: Salvo no banco ID $newId e Agendado para ${_selectedTime.format(context)}");
 
@@ -350,6 +364,52 @@ class _AddNotificationScreenState extends State<AddNotificationScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildDaysSelector() {
+    final daysOfWeek = [
+      {'name': 'D', 'val': 7},
+      {'name': 'S', 'val': 1},
+      {'name': 'T', 'val': 2},
+      {'name': 'Q', 'val': 3},
+      {'name': 'Q', 'val': 4},
+      {'name': 'S', 'val': 5},
+      {'name': 'S', 'val': 6},
+    ];
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: daysOfWeek.map((day) {
+        final isSelected = _selectedDays.contains(day['val']);
+        return GestureDetector(
+          onTap: () {
+            setState(() {
+              if (isSelected && _selectedDays.length > 1) {
+                _selectedDays.remove(day['val']);
+              } else if (!isSelected) {
+                _selectedDays.add(day['val'] as int);
+              }
+            });
+          },
+          child: Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: isSelected ? grapeSoda : grafite.withOpacity(0.35),
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              day['name'] as String,
+              style: TextStyle(
+                color: isSelected ? Colors.white : Colors.white.withOpacity(0.5),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 }

@@ -25,8 +25,9 @@ class DBHelper {
     String path = join(await getDatabasesPath(), 'notify_me.db');
     return await openDatabase(
       path,
-      version: 1,
-      onCreate: _onCreate, // Chama essa função se for a primeira vez que o app roda
+      version: 2,
+      onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
     );
   }
 
@@ -39,10 +40,19 @@ class DBHelper {
         packageName TEXT,
         message TEXT,
         hour INTEGER,
-        minute INTEGER
+        minute INTEGER,
+        days TEXT
       )
     ''');
   }
+
+  // Upgrade do banco para adicionar a coluna days em apps já instalados
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute("ALTER TABLE notifications ADD COLUMN days TEXT DEFAULT '1,2,3,4,5,6,7'");
+    }
+  }
+
 
   // --- MÉTODOS CRUD (Create, Read, Delete) ---
 
@@ -70,6 +80,17 @@ class DBHelper {
       'notifications',
       where: 'id = ?',
       whereArgs: [id],
+    );
+  }
+
+  // 4. Atualizar Notificação (NOVO)
+  Future<int> updateNotification(NotificationModel notification) async {
+    final db = await database;
+    return await db.update(
+      'notifications',
+      notification.toMap(),
+      where: 'id = ?',
+      whereArgs: [notification.id],
     );
   }
 }
