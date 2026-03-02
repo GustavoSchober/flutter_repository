@@ -4,6 +4,8 @@ import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'dart:io';
 import 'package:installed_apps/installed_apps.dart';
+import '../database/db_helper.dart';
+import '../models/notification_model.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -157,7 +159,7 @@ class NotificationService {
         body,
         scheduledDate,
         notificationDetails,
-        androidAllowWhileIdle: true,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
         matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
@@ -173,5 +175,37 @@ class NotificationService {
       await flutterLocalNotificationsPlugin.cancel(uniqueId);
     }
     print("🗑️ Cancelados todos os alarmes do ID base $id");
+  }
+
+  /// Re-agenda todas as notificações salvas no banco de dados.
+  /// Chamado na inicialização do app para garantir que notificações
+  /// perdidas (após reboot, atualização, etc.) sejam restauradas.
+  Future<void> rescheduleAllNotifications() async {
+    try {
+      final List<NotificationModel> notifications = await DBHelper().getNotifications();
+      
+      for (final notification in notifications) {
+        if (notification.id == null) continue;
+        
+        final List<int> days = notification.days
+            .split(',')
+            .map((e) => int.parse(e.trim()))
+            .toList();
+        
+        await scheduleNotification(
+          id: notification.id!,
+          title: 'Hora de usar: ${notification.appName}',
+          body: notification.message,
+          hour: notification.hour,
+          minute: notification.minute,
+          payload: notification.packageName,
+          days: days,
+        );
+      }
+      
+      print("✅ Re-agendadas ${notifications.length} notificações com sucesso.");
+    } catch (e) {
+      print("⚠️ Erro ao re-agendar notificações: $e");
+    }
   }
 }

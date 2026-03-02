@@ -7,6 +7,10 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await NotificationService().init();
 
+  // Re-agenda todas as notificações salvas no banco
+  // Garante que notificações perdidas (reboot, atualização, etc.) sejam restauradas
+  NotificationService().rescheduleAllNotifications();
+
   // Pré-carrega os apps instalados no cache (só roda 1 vez)
   AppCacheService().loadApps();
 
